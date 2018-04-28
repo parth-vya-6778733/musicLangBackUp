@@ -1,0 +1,99 @@
+PARSER_BEGIN(musiclang)
+
+package musicLang;
+
+import javax.sound.midi.MidiUnavailableException;
+import java.util.ArrayList;
+
+public class musiclang {
+
+  /** Main entry point. */
+  public static void main(String args[]) throws ParseException, MidiUnavailableException {
+    if (args.length == 0)
+    {
+        System.out.println("Reading input from command line");
+        musiclang parser = new musiclang(System.in);
+    }
+    else
+    {
+        System.out.println("Reading input from file as argument");
+        try {
+            musiclang parser = new musiclang(new java.io.FileInputStream(args[0]));
+          } catch (java.io.FileNotFoundException e) {
+            System.out.println("File not found.");
+            return;
+          }
+    }
+
+    musiclang.CompilationUnit();
+
+  }
+
+}
+
+PARSER_END(musiclang)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+
+TOKEN :
+{
+  <L: "(">
+| <R: ")">
+| <C: ",">
+| < PitchToken: ["A"-"Z"] >
+| < DurationToken: ["w","h","q"] >
+| < TrackToken: "@" >
+| < PlayToken: ">" >
+| < InstrumentIdToken: "i" >
+| < InstrumentNumToken: (["A"-"Z"])+ >
+}
+
+void CompilationUnit() throws MidiUnavailableException:
+{MusicTrack track;}
+{
+  track = TrackInput()
+  ( track = NoteInput(track) )*
+  ( PlayInput(track) )*
+  <EOF>
+  {}
+}
+
+MusicTrack TrackInput() :
+{Token trackTk; MusicTrack track;}
+{
+  trackTk=<TrackToken>
+
+  {
+    System.out.println("The track has begun: " + trackTk);
+    track = new MusicTrack();
+    return track;
+    }
+}
+
+MusicTrack NoteInput(MusicTrack track) :
+{Token pitch; Token dur; Note note;}
+{
+  <L> pitch=<PitchToken> <C> dur=<DurationToken> <R>
+  { System.out.println("The input Pitch is: " + pitch + " The input Duration is: " + dur);
+    note = new Note(Pitch.valueOf(pitch.toString()), Duration.valueOf(dur.toString()));
+    track.addNote(note);
+    return track;
+  }
+}
+
+void PlayInput(MusicTrack track) throws MidiUnavailableException:
+{Token play; Token instType;}
+{
+  play=<PlayToken> <InstrumentIdToken> instType=<InstrumentNumToken>
+  { System.out.println("The track will be played on " + instType + " Instrument");
+    track.setInstrument(MusicInstrument.valueOf(instType.toString()));
+    track.printNotes();
+    track.play();
+  }
+}
